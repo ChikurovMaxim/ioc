@@ -2,6 +2,8 @@ package com.app;
 
 
 import com.inter.Inter;
+import org.junit.Assert;
+import org.junit.Test;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -12,12 +14,13 @@ import javax.inject.Named;
 @Named
 public class Main {
 
-    private static Service service = new Service("com");
-
     @Inject
     @Named(value = "second")
     public Inter inter;
 
-    public static void main(String[] args){
+    @Test
+    public void main(){
+        Service service = new Service("com");
+        Assert.assertNotNull(inter);
     }
 }

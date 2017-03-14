@@ -1,7 +1,5 @@
 package com.app;
 
-import com.inter.Inter;
-import com.sun.xml.internal.fastinfoset.util.CharArray;
 import org.reflections.Reflections;
 
 import javax.inject.Inject;
@@ -21,7 +19,8 @@ public class Service {
     private Reflections reflections;
     private Set<Class<?>> annotated;
     private Set<Field> injected;
-    private Map<Class, Object> instanceConteiner;
+    private Map<Class, Object> instanceConteiner = new HashMap<>();
+    private Class initer;
 
     public Service(String packageToLook) {
         reflections = new Reflections(packageToLook);
@@ -29,48 +28,51 @@ public class Service {
         getClassRelevation();
     }
 
-    public <T> T getBean(Class<T> beanType) {
+    public <T> Object getBean(Class<T> beanType) {
+        for (Map.Entry<Class, Object> entry : instanceConteiner.entrySet()) {
+            if (entry.getKey().equals(beanType)) return entry.getValue();
+        }
         return null;
     }
 
-    private void getClassRelevation()  {
+    private void getClassRelevation() {
         Class toWorkWith;
         String implName = null;
         for (Class cls : annotated) {
-            if (cls.getDeclaredFields().length != 0) {
-                List<Field> fields = Arrays.asList(cls.getDeclaredFields());
-                for (Field f : fields) {
-                    if (f.isAnnotationPresent(Inject.class)) {
-                        toWorkWith = f.getType();
-                        if (f.isAnnotationPresent(Named.class)) {
-                            implName = f.getAnnotation(Named.class).value();
-                        }
-                        try {
-                            Object o2 = cls.getConstructors()[0].newInstance();
-                            for (Map.Entry<Class<?>, Map<String, Class<?>>> entry : getMap().entrySet()) {
-                                if (entry.getKey().equals(toWorkWith)) {
-                                    for (Map.Entry<String, Class<?>> classEntry : entry.getValue().entrySet()) {
-                                        if (implName != null) {
-                                            if (implName.equals(classEntry.getKey())) {
-                                                f.set(o2, classEntry.getValue().getConstructors()[0].newInstance());
-                                            }
-                                        } else {
-                                            try {
-                                                f.set(entry.getKey(), classEntry.getValue());
-                                            } catch (IllegalAccessException e) {
-                                                e.printStackTrace();
-                                            }
+            List<Field> fields = Arrays.asList(cls.getDeclaredFields());
+            for (Field f : fields) {
+                if (f.isAnnotationPresent(Inject.class)) {
+                    toWorkWith = f.getType();
+                    if (f.isAnnotationPresent(Named.class)) {
+                        implName = f.getAnnotation(Named.class).value();
+                        if(!f.isAccessible())f.setAccessible(true);
+                    }
+                    try {
+                        Object o2 = cls.getConstructors()[0].newInstance();
+                        instanceConteiner.put(cls, o2);
+                        for (Map.Entry<Class<?>, Map<String, Class<?>>> entry : getMap().entrySet()) {
+                            if (entry.getKey().equals(toWorkWith)) {
+                                for (Map.Entry<String, Class<?>> classEntry : entry.getValue().entrySet()) {
+                                    if (implName != null) {
+                                        if (implName.equals(classEntry.getKey())) {
+                                            Object o3 = classEntry.getValue().getConstructors()[0].newInstance();
+                                            f.set(o2, o3);
+                                        }
+                                    } else {
+                                        try {
+                                            f.set(entry.getKey(), classEntry.getValue());
+                                        } catch (IllegalAccessException e) {
+                                            e.printStackTrace();
                                         }
                                     }
                                 }
                             }
-                        }catch (IllegalAccessException| InvocationTargetException| InstantiationException e){
-                            e.printStackTrace();
                         }
+                    } catch (IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                        e.printStackTrace();
                     }
                 }
             }
-
         }
     }
 
